@@ -5,7 +5,7 @@
 
 /* ---------- CONFIGURACIÓN (único bloque que debes editar) --------- */
 
-const API_BASE_URL = "https://rough-king-6080.multiboxes-peru.workers.dev/api/health";
+const API_BASE_URL = "https://rough-king-6080.multiboxes-peru.workers.dev";
 
 const CONFIG = {
   MAX_FILES: 10,           // debe coincidir con el límite del backend
