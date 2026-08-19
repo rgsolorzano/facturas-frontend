@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Procesador de Facturas con IA</title>
+  <meta name="description" content="Carga facturas en PDF y extrae automáticamente los productos y sus importes." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <div>
+        <h1 class="title">Procesador de Facturas con IA</h1>
+        <p class="subtitle">Carga tus facturas y extrae automáticamente los productos y sus importes.</p>
+      </div>
+      <div class="status" id="backendStatus" data-state="checking">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__text">Comprobando servicio…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- 1. CARGA ------------------------------------------------------ -->
+    <section class="panel" aria-labelledby="h-carga">
+      <h2 class="panel__title" id="h-carga">1 · Cargar facturas</h2>
+
+      <div class="dropzone" id="dropzone" tabindex="0" role="button"
+           aria-label="Arrastra tus facturas aquí o selecciona archivos PDF">
+        <p class="dropzone__lead">Arrastra tus facturas aquí</p>
+        <p class="dropzone__or">o</p>
+        <button class="btn btn--ghost" type="button" id="btnSelect">Selecciona archivos PDF</button>
+        <p class="dropzone__hint" id="limitsHint"></p>
+        <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple hidden />
+      </div>
+
+      <div class="filelist" id="filelist" hidden>
+        <div class="filelist__head">
+          <span id="fileCount">0 archivos</span>
+          <button class="link" type="button" id="btnClearFiles">Quitar todos</button>
+        </div>
+        <ul class="filelist__items" id="fileItems"></ul>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--primary" type="button" id="btnProcess" disabled>Procesar facturas</button>
+        <span class="progress" id="progress" hidden></span>
+      </div>
+
+      <p class="alert alert--error" id="uploadError" hidden></p>
+    </section>
+
+    <!-- 2. RESULTADOS ------------------------------------------------- -->
+    <section class="panel" id="resultsPanel" aria-labelledby="h-resultados" hidden>
+      <h2 class="panel__title" id="h-resultados">2 · Resultados</h2>
+
+      <dl class="summary" id="summary">
+        <div class="summary__item"><dt>Facturas procesadas</dt><dd id="sumFacturas">0</dd></div>
+        <div class="summary__item"><dt>Productos extraídos</dt><dd id="sumProductos">0</dd></div>
+        <div class="summary__item summary__item--warn"><dt>Requieren revisión</dt><dd id="sumRevision">0</dd></div>
+        <div class="summary__item summary__item--error"><dt>Facturas con error</dt><dd id="sumErrores">0</dd></div>
+      </dl>
+
+      <div class="notices" id="notices"></div>
+
+      <div class="toolbar">
+        <label class="field field--grow">
+          <span class="field__label">Buscar</span>
+          <input type="search" id="search" placeholder="Descripción, archivo, fecha…" />
+        </label>
+        <label class="field">
+          <span class="field__label">Fuente</span>
+          <select id="filterFuente">
+            <option value="">Todas</option>
+            <option value="Makro">Makro</option>
+            <option value="Agora">Agora</option>
+            <option value="REVISIÓN MANUAL">REVISIÓN MANUAL</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="filterRevision" />
+          <span>Solo revisión manual</span>
+        </label>
+        <span class="toolbar__count" id="rowCount"></span>
+      </div>
+
+      <div class="tablewrap">
+        <table class="grid" id="grid">
+          <thead>
+            <tr>
+              <th class="th-sort" data-key="fecha" scope="col">Fecha</th>
+              <th class="th-sort" data-key="fuente" scope="col">Fuente</th>
+              <th class="th-sort" data-key="tipo" scope="col">Tipo</th>
+              <th class="th-sort" data-key="descripcion" scope="col">Descripción del producto</th>
+              <th class="th-sort th-num" data-key="total" scope="col">Total</th>
+            </tr>
+          </thead>
+          <tbody id="gridBody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4">Suma de las filas visibles</td>
+              <td class="td-num" id="visibleTotal">0.00</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. EXPORTACIÓN ------------------------------------------------ -->
+    <section class="panel" id="exportPanel" aria-labelledby="h-export" hidden>
+      <h2 class="panel__title" id="h-export">3 · Campos a exportar</h2>
+
+      <div class="fields" id="exportFields">
+        <label class="check"><input type="checkbox" value="fecha" checked /><span>Fecha</span></label>
+        <label class="check"><input type="checkbox" value="fuente" checked /><span>Fuente</span></label>
+        <label class="check"><input type="checkbox" value="tipo" checked /><span>Tipo</span></label>
+        <label class="check"><input type="checkbox" value="descripcion" checked /><span>Descripción del producto</span></label>
+        <label class="check"><input type="checkbox" value="total" checked /><span>Total</span></label>
+      </div>
+
+      <div class="actions actions--wrap">
+        <button class="btn btn--ghost" type="button" id="btnSelectAll">Seleccionar todos</button>
+        <button class="btn btn--ghost" type="button" id="btnSelectNone">Deseleccionar todos</button>
+        <label class="check"><input type="checkbox" id="withHeaders" checked /><span>Incluir fila de encabezados</span></label>
+        <button class="btn btn--primary" type="button" id="btnCopy">Copiar al portapapeles</button>
+      </div>
+
+      <p class="hint">Se copian las filas visibles según el buscador y los filtros, separadas por tabulaciones: pégalas directamente en Excel o Google Sheets.</p>
+      <textarea id="fallbackArea" class="fallback" hidden aria-label="Datos para copiar manualmente"></textarea>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <p>Las facturas se envían al backend solo para su procesamiento y no se almacenan. Revisa siempre los importes antes de usarlos en tu contabilidad.</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
